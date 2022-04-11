@@ -29,7 +29,7 @@ pub trait Game {
 
     fn check_win(&mut self) -> bool;
 
-    fn play<T: Player>(&mut self, player_num: i8, player: &T);
+    fn play(&mut self, player_num: i8, player: &Box<dyn Player>);
 }
 
 pub trait NewPlayerState {
@@ -48,7 +48,10 @@ impl NewPlayerState for PlayerState {
 
         let mut stack: Vec<i8> = Vec::new();
         for _ in 0..stack_size {
-            stack.push(rng.gen_range(1..13))
+            let mut random_num = rng.gen_range(1..14);
+            if random_num == 13 { random_num = -1 };
+
+            stack.push(random_num);
         }
 
         PlayerState { 
@@ -159,9 +162,10 @@ impl Game for SkipBoGame {
         if length < 5 {
             let mut new_cards: Vec<i8> = Vec::new();
             for _ in 0..(5 - length) {
-                let random_num = self.rng.gen_range(1..13);
+                let mut random_num = self.rng.gen_range(1..14);
+                if random_num == 13 { random_num = -1 };
                 new_cards.push(random_num);
-            }
+            }  
             self.players[player_num as usize].hand.append(&mut new_cards);
         }
     }
@@ -177,16 +181,16 @@ impl Game for SkipBoGame {
         false
     }
 
-    fn play<T: Player>(&mut self, player_num: i8, player: &T) {
+    fn play(&mut self, player_num: i8, player: &Box<dyn Player>) {
         self.refill_hand(player_num);
 
         let mut finished = true;
         while finished {
-            finished = player.play(player_num, self);
-            
             if self.check_win() {
                 break;
             }
+
+            finished = player.play(player_num, self);
 
             if self.players[player_num as usize].hand.is_empty() && finished {
                 self.refill_hand(player_num);
