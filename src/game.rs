@@ -9,7 +9,7 @@ pub enum CardStack {
     Field
 }
 
-#[derive(Debug)]
+#[derive(Debug, std::cmp::PartialEq, Clone, Copy)]
 pub struct Move {
     pub from: CardStack,
     pub from_num: i8,
@@ -63,7 +63,7 @@ impl NewPlayerState for PlayerState {
 }
 
 pub struct SkipBoGame {
-    pub playing_field: [i8; 4],
+    pub playing_field: [(i8, bool); 4],
     pub players: Vec<PlayerState>,
     pub end: bool,
     pub winner: i8,
@@ -73,7 +73,7 @@ pub struct SkipBoGame {
 impl Game for SkipBoGame {
     fn new(players: Vec<PlayerState>) -> Self {
         SkipBoGame {
-            playing_field: [12, 12, 12, 12], 
+            playing_field: [(12, false), (12, false), (12, false), (12, false)], 
             players,
             end: false,
             winner: -1,
@@ -86,13 +86,17 @@ impl Game for SkipBoGame {
 
         // Set card as playing_field (if it is joker, replace by next)
         if card == &-1 {
-            if self.playing_field[stack as usize] == 12 {
-                self.playing_field[stack as usize] = 1;
+            if self.playing_field[stack as usize].1 {
+                println!("ERROR");
+            }
+            if self.playing_field[stack as usize].0 == 12 {
+                self.playing_field[stack as usize] = (1, true);
             } else {
-                self.playing_field[stack as usize] += 1;
+                self.playing_field[stack as usize].0 += 1;
+                self.playing_field[stack as usize].1 = true;
             }
         } else {
-            self.playing_field[stack as usize] = *card;
+            self.playing_field[stack as usize] = (*card, false);
         }
         // Remove card from player's stack
         self.players[player_num as usize].stack.pop().expect("Stack not emtpy");
@@ -103,13 +107,17 @@ impl Game for SkipBoGame {
         
         // Set card as playing_field (if it is joker, replace by next)
         if card == -1 {
-            if self.playing_field[stack_field as usize] == 12 {
-                self.playing_field[stack_field as usize] = 1;
+            if self.playing_field[stack_field as usize].1 {
+                println!("ERROR");
+            }
+            if self.playing_field[stack_field as usize].0 == 12 {
+                self.playing_field[stack_field as usize] = (1, true);
             } else {
-                self.playing_field[stack_field as usize] += 1;
+                self.playing_field[stack_field as usize].0 += 1;
+                self.playing_field[stack_field as usize].1 = true;
             }
         } else {
-            self.playing_field[stack_field as usize] = card;
+            self.playing_field[stack_field as usize] = (card, false);
         }
         // Remove card from player's hand
         self.players[player_num as usize].hand.remove(stack_hand as usize);
@@ -120,13 +128,17 @@ impl Game for SkipBoGame {
         
         // Set card as playing_field (if it is joker, replace by next)
         if card == -1 {
-            if self.playing_field[stack_field as usize] == 12 {
-                self.playing_field[stack_field as usize] = 1;
+            if self.playing_field[stack_field as usize].1 {
+                println!("ERROR");
+            }
+            if self.playing_field[stack_field as usize].0 == 12 {
+                self.playing_field[stack_field as usize] = (1, true);
             } else {
-                self.playing_field[stack_field as usize] += 1;
+                self.playing_field[stack_field as usize].0 += 1;
+                self.playing_field[stack_field as usize].1 = true;
             }
         } else {
-            self.playing_field[stack_field as usize] = card;
+            self.playing_field[stack_field as usize] = (card, false);
         }
         // Remove card from player's side
         self.players[player_num as usize].side[stack_side as usize].pop();
