@@ -5,6 +5,7 @@ pub trait NewPlayerState {
     fn new(stack_size: i32) -> Self;
 }
 
+#[derive(Clone)]
 pub struct PlayerState {
     pub hand: Vec<i8>,
     pub side: [Vec<i8>; 4],
