@@ -58,7 +58,7 @@ impl RecursivePlayer for GoodPlayer {
                     Some(s) => {
                         if *s == (stack - 1) || *s == -1 {
                             // If the player has all necessary cards to reach his STACK, return the first move
-                            if (stack-2) == playing_field.0 && /* If the card is a joker, check if joker is allowed */((s == &-1) ^ used_joker ) {
+                            if (stack-2) == playing_field.0 && /* If the card is a joker, check if joker is allowed */((s == &-1) ^ playing_field.1) {
                                 return Some(Move { to: CardStack::Field, to_num: playing_field_stack, from: CardStack::Side, from_num: index as i8 });
                             } else {
                                 // remove that card from side
