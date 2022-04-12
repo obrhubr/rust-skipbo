@@ -1,11 +1,12 @@
-pub mod player;
 pub mod game;
+pub mod players;
+pub mod move_stack;
 
 use indicatif::{ProgressBar, ProgressStyle};
 use std::time::Instant;
 
-use player::{SimplePlayer, GoodPlayer, Player};
-use crate::game::{Game, NewPlayerState, SkipBoGame, PlayerState};
+use crate::players::{good_player::GoodPlayer, player::NewPlayerState, simple_player::SimplePlayer, player::{Player, PlayerState}};
+use crate::game::{Game, SkipBoGame};
 
 fn play_game(game: &mut SkipBoGame, players: Vec<Box<dyn Player>>) -> (i8, i32) {
     let mut n = 0;
@@ -17,7 +18,6 @@ fn play_game(game: &mut SkipBoGame, players: Vec<Box<dyn Player>>) -> (i8, i32) 
         n += 1;
     }
 
-    //println!("Player {} won the game in {} rounds!", game.winner, n);
     (game.winner, n)
 }
 

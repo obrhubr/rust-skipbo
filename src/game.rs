@@ -1,21 +1,5 @@
-use crate::player::Player;
+use crate::{players::player::{Player, PlayerState}, move_stack::{Move, CardStack}};
 use rand::{Rng, prelude::ThreadRng};
-
-#[derive(std::cmp::PartialEq, Debug, Copy, Clone)]
-pub enum CardStack {
-    Stack,
-    Side,
-    Hand,
-    Field
-}
-
-#[derive(Debug, std::cmp::PartialEq, Clone, Copy)]
-pub struct Move {
-    pub from: CardStack,
-    pub from_num: i8,
-    pub to: CardStack,
-    pub to_num: i8
-}
 
 pub trait Game {
     fn new(players: Vec<PlayerState>) -> Self;
@@ -29,37 +13,9 @@ pub trait Game {
 
     fn check_win(&mut self) -> bool;
 
+    fn get_valid_moves(&self, playing_field: [(i8, bool); 4], hand: Vec<i8>, side: [Vec<i8>; 4], stack: Vec<i8>) -> Vec<Move>;
+    fn turn(&mut self, player_num: i8, player: &Box<dyn Player>) -> bool;
     fn play(&mut self, player_num: i8, player: &Box<dyn Player>);
-}
-
-pub trait NewPlayerState {
-    fn new(stack_size: i32) -> Self;
-}
-
-pub struct PlayerState {
-    pub hand: Vec<i8>,
-    pub side: [Vec<i8>; 4],
-    pub stack: Vec<i8>
-}
-
-impl NewPlayerState for PlayerState {
-    fn new(stack_size: i32) -> Self {
-        let mut rng = rand::thread_rng();
-
-        let mut stack: Vec<i8> = Vec::new();
-        for _ in 0..stack_size {
-            let mut random_num = rng.gen_range(1..14);
-            if random_num == 13 { random_num = -1 };
-
-            stack.push(random_num);
-        }
-
-        PlayerState { 
-            hand: vec![rng.gen_range(1..13), rng.gen_range(1..13), rng.gen_range(1..13), rng.gen_range(1..13), rng.gen_range(1..13)], 
-            side: [Vec::new(), Vec::new(), Vec::new(), Vec::new()],
-            stack
-        }
-    }
 }
 
 pub struct SkipBoGame {
@@ -193,6 +149,68 @@ impl Game for SkipBoGame {
         false
     }
 
+    fn get_valid_moves(&self, playing_field: [(i8, bool); 4], hand: Vec<i8>, side: [Vec<i8>; 4], stack: Vec<i8>) -> Vec<Move> {
+        let mut valid_moves = Vec::<Move>::new();
+
+        // check if you can place any card from the stack
+        for (index, f) in playing_field.iter().enumerate() {
+            let l = stack.last().expect("empty stack");
+            if l == &(f.0 + 1) || (f.0 == 12 && l == &1) || (l == &-1 && !f.1) {
+                valid_moves.push(Move { from: CardStack::Stack, from_num: 0, to: CardStack::Field, to_num: index as i8 })
+            }
+        }
+
+        // check if you can place any card from the hand
+        for (index_f, f) in playing_field.iter().enumerate() {
+            for (index_h, h) in hand.iter().enumerate() {
+                if f.0 + 1 == *h || (h == &-1 && !f.1) || (f.0 == 12 && h == &1) {
+                    valid_moves.push(Move { from: CardStack::Hand, from_num: index_h as i8, to: CardStack::Field, to_num: index_f as i8 })
+                }
+            }
+        }
+
+        // check if you can place any card from the side
+        for (index_s, s) in side.iter().enumerate() {
+            for (index_f, f) in playing_field.iter().enumerate() {
+                if s.is_empty() {
+                    continue;
+                }
+                let l = s.last().expect("empty stack");
+                if f.0 +1 == *l || (l == &-1 && !f.1) || (f.0 == 12 && l == &1) {
+                    valid_moves.push(Move { from: CardStack::Side, from_num: index_s as i8, to: CardStack::Field, to_num: index_f as i8 })
+                }
+            }
+        }
+
+        valid_moves
+    }
+
+    fn turn(&mut self, player_num: i8, player: &Box<dyn Player>) -> bool {
+        let playing_field = self.playing_field;
+        let p = &self.players[player_num as usize];
+
+        let valid_moves = self.get_valid_moves(playing_field, p.hand.clone(), p.side.clone(), p.stack.clone());
+
+        if valid_moves.is_empty() {
+            // put card to side
+            self.execute_move(player_num, &player.select_stack(self.players[player_num as usize].hand.clone(), self.players[player_num as usize].side.clone()));
+            false
+        } else {
+            let selected_move = player.select_move(valid_moves, *self.players[player_num as usize].stack.last().unwrap(), *self.players[((player_num + 1) % (self.players.len() as i8)) as usize].stack.last().unwrap(), self.players[player_num as usize].side.clone(), self.players[player_num as usize].hand.clone(), self.playing_field);
+            match selected_move {
+                None => {
+                    // Put card to side if player executes no move and end turn
+                    self.execute_move(player_num, &player.select_stack(self.players[player_num as usize].hand.clone(), self.players[player_num as usize].side.clone()));
+                    return false
+                }
+                Some(m) => {
+                    self.execute_move(player_num, &m);
+                }
+            }
+            true
+        }
+    }
+
     fn play(&mut self, player_num: i8, player: &Box<dyn Player>) {
         self.refill_hand(player_num);
 
@@ -202,7 +220,7 @@ impl Game for SkipBoGame {
                 break;
             }
 
-            finished = player.play(player_num, self);
+            finished = self.turn(player_num, player);
 
             if self.players[player_num as usize].hand.is_empty() && finished {
                 self.refill_hand(player_num);

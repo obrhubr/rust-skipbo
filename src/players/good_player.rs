@@ -1,6 +1,4 @@
-use std::{cmp::Ordering, os};
-
-use crate::game::{SkipBoGame, CardStack, Move, Game};
+use crate::{players::player::Player, move_stack::{Move, CardStack}};
 
 fn distance_between_cards(c1: i8, c2: i8) -> i8 {
     if c2 < c1 {
@@ -9,114 +7,6 @@ fn distance_between_cards(c1: i8, c2: i8) -> i8 {
         c2 - c1
     }
 }
-
-pub trait Player {
-    fn play(&self, player_num: i8, game: &mut SkipBoGame) -> bool {
-        let playing_field = game.playing_field;
-        let p = &game.players[player_num as usize];
-
-        let valid_moves = self.get_valid_moves(playing_field, p.hand.clone(), p.side.clone(), p.stack.clone());
-
-        if valid_moves.is_empty() {
-            // put card to side
-            game.execute_move(player_num, &self.select_stack(game.players[player_num as usize].hand.clone(), game.players[player_num as usize].side.clone()));
-            false
-        } else {
-            let selected_move = self.select_move(valid_moves, *game.players[player_num as usize].stack.last().unwrap(), *game.players[((player_num + 1) % (game.players.len() as i8)) as usize].stack.last().unwrap(), game.players[player_num as usize].side.clone(), game.players[player_num as usize].hand.clone(), game.playing_field);
-            match selected_move {
-                None => {
-                    // Put card to side if player executes no move and end turn
-                    game.execute_move(player_num, &self.select_stack(game.players[player_num as usize].hand.clone(), game.players[player_num as usize].side.clone()));
-                    return false
-                }
-                Some(m) => {
-                    game.execute_move(player_num, &m);
-                }
-            }
-            true
-        }
-    }
-
-    fn select_move(&self, moves: Vec<Move>, stack: i8, opponent_stack: i8, side: [Vec<i8>; 4], hand: Vec<i8>, playing_field: [(i8, bool); 4]) -> Option<Move>;
-    fn select_stack(&self, hand: Vec<i8>, side: [std::vec::Vec<i8>; 4]) -> Move;
-    
-    fn get_valid_moves(&self, playing_field: [(i8, bool); 4], hand: Vec<i8>, side: [Vec<i8>; 4], stack: Vec<i8>) -> Vec<Move> {
-        let mut valid_moves = Vec::<Move>::new();
-
-        // check if you can place any card from the stack
-        for (index, f) in playing_field.iter().enumerate() {
-            let l = stack.last().expect("empty stack");
-            if l == &(f.0 + 1) || (f.0 == 12 && l == &1) || (l == &-1 && !f.1) {
-                valid_moves.push(Move { from: CardStack::Stack, from_num: 0, to: CardStack::Field, to_num: index as i8 })
-            }
-        }
-
-        // check if you can place any card from the hand
-        for (index_f, f) in playing_field.iter().enumerate() {
-            for (index_h, h) in hand.iter().enumerate() {
-                if f.0 + 1 == *h || (h == &-1 && !f.1) || (f.0 == 12 && h == &1) {
-                    valid_moves.push(Move { from: CardStack::Hand, from_num: index_h as i8, to: CardStack::Field, to_num: index_f as i8 })
-                }
-            }
-        }
-
-        // check if you can place any card from the side
-        for (index_s, s) in side.iter().enumerate() {
-            for (index_f, f) in playing_field.iter().enumerate() {
-                if s.is_empty() {
-                    continue;
-                }
-                let l = s.last().expect("empty stack");
-                if f.0 +1 == *l || (l == &-1 && !f.1) || (f.0 == 12 && l == &1) {
-                    valid_moves.push(Move { from: CardStack::Side, from_num: index_s as i8, to: CardStack::Field, to_num: index_f as i8 })
-                }
-            }
-        }
-
-        valid_moves
-    }
-}
-
-pub struct SimplePlayer {}
-// Always plays the first valid_move (mostly from stack to playing_field)
-impl Player for SimplePlayer {
-    fn select_move(&self, moves: Vec<Move>, _stack: i8, _opponent_stack: i8, _side: [Vec<i8>; 4], _hand: Vec<i8>, _playing_field: [(i8, bool); 4]) -> Option<Move> {
-        let m = moves.first().unwrap();
-        Some(Move { from: m.from, from_num: m.from_num, to: m.to, to_num: m.to_num })
-    }
-
-    fn select_stack(&self, _hand: Vec<i8>, side: [std::vec::Vec<i8>; 4]) -> Move {
-        let index_of_min: usize = side
-            .iter()
-            .enumerate()
-            .min_by(|(_, a), (_, b)| a.len().partial_cmp(&b.len()).unwrap_or(Ordering::Equal))
-            .map(|(index, _)| index).unwrap();
-        Move { from: CardStack::Hand, from_num: 0, to: CardStack::Side, to_num: index_of_min as i8 }
-    }
-}
-
-pub struct BadPlayer {}
-// Only plays from stack
-impl Player for BadPlayer {
-    fn select_move(&self, moves: Vec<Move>, _stack: i8, _opponent_stack: i8, _side: [Vec<i8>; 4], _hand: Vec<i8>, _playing_field: [(i8, bool); 4]) -> Option<Move> {
-        let m = moves.first().unwrap();
-        if m.from == CardStack::Stack {
-            Some(Move { from: m.from, from_num: m.from_num, to: m.to, to_num: m.to_num })
-        } else {
-            None
-        }
-    }
-
-    fn select_stack(&self, _hand: Vec<i8>, side: [std::vec::Vec<i8>; 4]) -> Move {
-        let index_of_min: usize = side
-            .iter()
-            .enumerate()
-            .min_by(|(_, a), (_, b)| a.len().partial_cmp(&b.len()).unwrap_or(Ordering::Equal))
-            .map(|(index, _)| index).unwrap();
-        Move { from: CardStack::Hand, from_num: 0, to: CardStack::Side, to_num: index_of_min as i8 }
-    }
-}
-
 
 trait RecursivePlayer {
     fn recurse_stack (&self, stack: i8, playing_field: (i8, bool), playing_field_stack: i8, hand: Vec<i8>, fixed_hand: Vec<i8>, side: [Vec<i8>; 4], fixed_side: [Vec<i8>; 4], used_stack: bool, used_joker: bool) -> Option<Move>;
@@ -191,6 +81,7 @@ impl RecursivePlayer for GoodPlayer {
         None
     }
 }
+
 impl Player for GoodPlayer {
     fn select_move(&self, moves: Vec<Move>, stack: i8, opponent_stack: i8, side: [Vec<i8>; 4], hand: Vec<i8>, playing_field: [(i8, bool); 4]) -> Option<Move> {
         // Play cards from STACK
@@ -202,7 +93,7 @@ impl Player for GoodPlayer {
         // Play cards from HAND & SIDE if you can play a card from STACK
         // recursively iterate through the cards in hand and side from the current stack card
         for (index, p) in playing_field.iter().enumerate() {
-            let m = self.recurse_stack(stack.clone(), p.clone(), index.clone() as i8, hand.clone(), hand.clone(), side.clone(), side.clone(), false, false);
+            let m = self.recurse_stack(stack, *p, index as i8, hand.clone(), hand.clone(), side.clone(), side.clone(), false, false);
             if m.is_some() {
                 return m
             };
@@ -210,7 +101,7 @@ impl Player for GoodPlayer {
 
         // Play cards from HAND & SIDE if you can prevent the next player from playing a card from stack
         for (index, p) in playing_field.iter().enumerate() {
-            let m = self.recurse_stack(opponent_stack.clone()+1, p.clone(), index.clone() as i8, hand.clone(), hand.clone(), side.clone(), side.clone(), false, false);
+            let m = self.recurse_stack(opponent_stack+1, *p, index as i8, hand.clone(), hand.clone(), side.clone(), side.clone(), false, false);
             if m.is_some() {
                 return m
             };
