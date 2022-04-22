@@ -26,6 +26,7 @@ trait RecursivePlayer {
 
 pub struct GoodPlayer {}
 impl RecursivePlayer for GoodPlayer {
+    // TODO: Recurse feed forward
     // Recursively check if the player could play a card from STACK by using the other availiable cards
     fn recurse_stack (&self, stack: i8, playing_field: (i8, bool), playing_field_stack: i8, mut hand: Vec<i8>, fixed_hand: Vec<i8>, mut side: [Vec<i8>; 4], fixed_side: [Vec<i8>; 4], used_stack: bool, used_joker: bool) -> Option<Move> {
         // Is any card from HAND a card that could come before stack
@@ -119,13 +120,15 @@ impl Player for GoodPlayer {
             };
         }
 
-        // Play cards from HAND & SIDE if you can prevent the next player from playing a card from stack
+        // Play cards from HAND & SIDE if you can prevent the next player from playing a card from stack (max 3 cards played)
         for (index, p) in playing_field.iter().enumerate() {
             // recursively iterate through the cards in hand and side
-            let m = self.recurse_stack(opponent_stack+1, *p, index as i8, hand.clone(), hand.clone(), side.clone(), side.clone(), false, false);
-            if m.is_some() {
-                return m
-            };
+            if distance_between_cards(p.0, opponent_stack) < 4 {
+                let m = self.recurse_stack(opponent_stack+1, *p, index as i8, hand.clone(), hand.clone(), side.clone(), side.clone(), false, false);
+                if m.is_some() {
+                    return m
+                };
+            }
         }
 
 
@@ -135,6 +138,17 @@ impl Player for GoodPlayer {
             for m in vc {
                 // Check if card is joker
                 if hand[m.from_num as usize] != -1 {
+                    return Some(*m);
+                }
+            }
+        }
+
+        // Play cards from SIDE that are not jokers or cards whose values are less than OPPONENT_STACK - 3 (otherwise they would help the opponent)
+        let vc: Vec<&Move> = moves.iter().filter(|m| m.from == CardStack::Side).filter(|m| distance_between_cards(*side[m.from_num as usize].last().unwrap(), opponent_stack) > 3).collect();
+        if !vc.is_empty() {
+            for m in vc {
+                // Check if card is joker
+                if *side[m.from_num as usize].last().unwrap() != -1 {
                     return Some(*m);
                 }
             }
